@@ -435,7 +435,11 @@
         
         <!-- COLUNA ESQUERDA: FILTROS EM CASCATA -->
         <div class="panel-card">
-          <div class="card-title">Filtros de Seleção</div>
+          <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Filtros de Seleção</span>
+            <!-- ÍCONE MANUAL PREMIUM: Dispara a atualização imediata da base viva ao clicar -->
+            <span onclick="forcarRefreshManualOperador(this)" title="Sincronizar base agora" style="cursor: pointer; font-size: 14px; opacity: 0.65; transition: transform 0.3s ease, opacity 0.2s;" onmouseover="this.style.opacity='1'; this.style.color='#8A05BE'" onmouseout="this.style.opacity='0.65'; this.style.color='inherit'">🔄</span>
+          </div>
           
           <div class="form-group">
             <label>Regionais</label>
@@ -2087,6 +2091,57 @@ if ('speechSynthesis' in window) {
       });
     }
 
+    // --- JAVASCRIPT: ENGINE DE ATUALIZAÇÃO MANUAL VIA ÍCONE DA DOCA ---
+    function forcarRefreshManualOperador(elementoIcone) {
+      // Se o sistema já estiver processando um dispatch ou se o operador estiver editando modais, bloqueia
+      if (processamentoEmAndamento) return;
+
+      console.log("🔄 RADAR: Sincronização manual disparada pelo operador. Consultando Google Sheets...");
+
+      // Efeito Visual: Adiciona dinamicamente um giro de 360 graus no ícone usando CSS inline
+      if (elementoIcone) {
+        elementoIcone.style.transform = 'rotate(360deg)';
+        elementoIcone.style.pointerEvents = 'none'; // Desativa cliques duplos durante o giro
+      }
+
+      // Bate no servidor do Google para trazer a fotografia mais recente e fresca da planilha [INDEX]
+      dispararRequisicaoApi({ acao: 'buscarRomaneios', filtros: { regional: 'Todos', transportador: 'Todos', romaneio: 'Todos', buscaTexto: '' } })
+        .then(response => {
+          // Restaura as propriedades originais do ícone após o término do carregamento
+          if (elementoIcone) {
+            elementoIcone.style.transform = 'rotate(0deg)';
+            elementoIcone.style.pointerEvents = 'auto';
+          }
+
+          if (response && response.success) {
+            // Atualiza o cache principal na memória do navegador
+            romaneiosGlobais = response.romaneios;
+            
+            // RADAR: Analisa a nova fila para calibrar o alarme e as cores Red/Green [INDEX]
+            if (typeof analisarNovasDemandasRadar === "function") {
+              analisarNovasDemandasRadar();
+            }
+
+            // Atualiza os percentuais das barras fixas do topo com o novo avanço de metas do dia [INDEX]
+            atualizarDashboardKPIs();
+            
+            // Força a cascata local a se recalcular e redesenhar a lista física na tela central [INDEX]
+            filtrarListaLocal();
+            
+            console.log("✓ RADAR: Todos os painéis, KPIs e controles atualizados com sucesso!");
+          }
+        })
+        .catch(err => {
+          if (elementoIcone) {
+            elementoIcone.style.transform = 'rotate(0deg)';
+            elementoIcone.style.pointerEvents = 'auto';
+          }
+          console.error("Erro na sincronização manual solicitada:", err);
+          alert("⚠️ Falha de comunicação. Não foi possível atualizar a base agora.");
+        });
+    }
+
+    
     
   </script>
 </body>
